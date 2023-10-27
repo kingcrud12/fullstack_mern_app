@@ -1,13 +1,14 @@
-import express from "express";
+import app from "./app"
+import env from "./util/validateEnv";
+import mongoose from "mongoose";
 
-const app = express();
+const port = env.PORT;
 
-const port = 8080;
-
-app.get("/", (req, res) => {
-    res.send("Hello, yann")
-});
-
-app.listen(port, () => {
-    console.log("Server is running on port : " + port)
-});
+mongoose.connect(env.CONNECT_MONGO)
+.then(()=>{
+    console.log("Connected to the databse")
+    app.listen(port, () => {
+        console.log("Server is running on port : " + port)
+    });
+})
+.catch(console.error)
