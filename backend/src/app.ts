@@ -1,12 +1,12 @@
-import express, { NextFunction, Request, Response } from "express";
 import "dotenv/config";
-import NoteModel from "./models/note"
+import express, { NextFunction, Request, Response } from "express";
+import notesRoutes from "./routes/notes";
+import userRoutes from "./routes/users";
 import morgan from "morgan";
-import session from "express-session"
-import env from "./util/validateEnv"
+import createHttpError, { isHttpError } from "http-errors";
+import session from "express-session";
+import env from "./util/validateEnv";
 import MongoStore from "connect-mongo";
-import notesRoutes from "./routes/notes"
-import usersRoutes from "./routes/users"
 import { requiresAuth } from "./middlewares/auth";
 
 const app = express();
@@ -20,7 +20,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        maxAge : 60 * 60 * 100
+        maxAge: 60 * 60 * 1000,
     },
     rolling: true,
     store: MongoStore.create({
@@ -28,30 +28,23 @@ app.use(session({
     }),
 }));
 
-app.get("/", async(req, res, next) => {
-    try{
+app.use("/api/users", userRoutes);
+app.use("/api/notes", requiresAuth, notesRoutes);
 
-        //throw Error("The server is off")
-        const notes = await NoteModel.find().exec();
-        res.status(200).json(notes);
-        
-    }catch(error){
-        next(error);
-    }
-});
-
-app.use("api/notes",requiresAuth, notesRoutes)
-app.use("api/users", usersRoutes)
 app.use((req, res, next) => {
-    next(Error("Endpoint not found"));
+    next(createHttpError(404, "Endpoint not found"));
 });
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use((error: unknown, req: Request, res: Response, next: NextFunction) =>{
-    console.log(error)
-        let errorMessage = "An unknown error occured";
-        if(error instanceof Error) errorMessage = error.message
-        res.status(500).json({error: errorMessage});
 
-})
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
+    console.error(error);
+    let errorMessage = "An unknown error occurred";
+    let statusCode = 500;
+    if (isHttpError(error)) {
+        statusCode = error.status;
+        errorMessage = error.message;
+    }
+    res.status(statusCode).json({ error: errorMessage });
+});
 
 export default app;
